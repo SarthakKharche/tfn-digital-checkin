@@ -92,6 +92,26 @@ document.addEventListener("DOMContentLoaded", () => {
     DashboardModule.init();
     EventsModule.init();
 
+    // --- Hamburger Menu Toggle ---
+    const hamburgerBtn = document.getElementById("hamburgerBtn");
+    const navLinksEl   = document.getElementById("navLinks");
+
+    function openMenu() {
+      hamburgerBtn.classList.add("active");
+      navLinksEl.classList.add("open");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeMenu() {
+      hamburgerBtn.classList.remove("active");
+      navLinksEl.classList.remove("open");
+      document.body.style.overflow = "";
+    }
+
+    hamburgerBtn.addEventListener("click", () => {
+      navLinksEl.classList.contains("open") ? closeMenu() : openMenu();
+    });
+
     // --- Page Navigation ---
     const navBtns = document.querySelectorAll(".nav-btn[data-page]");
     const pages   = document.querySelectorAll(".page");
@@ -108,6 +128,9 @@ document.addEventListener("DOMContentLoaded", () => {
         pages.forEach((p) => {
           p.classList.toggle("active", p.id === `page-${targetPage}`);
         });
+
+        // Close hamburger menu on mobile after navigation
+        closeMenu();
 
         // Stop scanner when navigating away from Check-In
         if (targetPage !== "checkin") {
