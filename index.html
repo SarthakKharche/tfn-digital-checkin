@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TFN Digital Check-In</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- QRCode.js for QR generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Html5-QRCode for camera-based QR scanning -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- Firebase SDKs (v9 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <!-- ====== LOGIN PAGE ====== -->
+  <section id="page-login" class="login-page">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-icon">
+          <i class="fas fa-calendar-check"></i>
+        </div>
+        <h1>TFN Digital Check-In</h1>
+        <p>Admin Login</p>
+      </div>
+      <form id="loginForm" autocomplete="off">
+        <div class="form-group">
+          <label for="loginEmail"><i class="fas fa-envelope"></i> Email</label>
+          <input type="email" id="loginEmail" placeholder="Enter admin email" required />
+        </div>
+        <div class="form-group">
+          <label for="loginPassword"><i class="fas fa-lock"></i> Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="loginPassword" placeholder="Enter password" required />
+            <button type="button" class="toggle-password" id="togglePassword">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+        </div>
+        <p class="login-error" id="loginError"></p>
+        <button type="submit" class="btn btn-primary btn-lg" id="loginBtn">
+          <i class="fas fa-sign-in-alt"></i> Login
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ====== MAIN APP (hidden until login) ====== -->
+  <div id="mainApp" style="display:none;">
+
+  <!-- ====== NAVIGATION ====== -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <i class="fas fa-calendar-check"></i>
+      <span>TFN Digital Check-In</span>
+    </div>
+    <div class="nav-links">
+      <button class="nav-btn active" data-page="upload">
+        <i class="fas fa-upload"></i> Upload CSV
+      </button>
+      <button class="nav-btn" data-page="checkin">
+        <i class="fas fa-qrcode"></i> Check-In
+      </button>
+      <button class="nav-btn" data-page="dashboard">
+        <i class="fas fa-chart-bar"></i> Dashboard
+      </button>
+      <button class="nav-btn logout-btn" id="logoutBtn">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </button>
+    </div>
+  </nav>
+
+  <!-- ====== UPLOAD PAGE ====== -->
+  <section id="page-upload" class="page active">
+    <div class="container">
+      <div class="page-header">
+        <h1><i class="fas fa-file-csv"></i> Upload Registrations</h1>
+        <p>Upload a CSV file exported from Google Forms to register attendees and generate QR codes.</p>
+      </div>
+
+      <!-- CSV Format Info -->
+      <div class="info-card">
+        <h3><i class="fas fa-info-circle"></i> Expected CSV Format</h3>
+        <div class="csv-columns">
+          <span class="badge">name</span>
+          <span class="badge">prn</span>
+          <span class="badge">email</span>
+          <span class="badge">mobile</span>
+          <span class="badge">year</span>
+        </div>
+      </div>
+
+      <!-- Upload Area -->
+      <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">
+          <i class="fas fa-cloud-upload-alt"></i>
+        </div>
+        <h3>Drag & Drop your CSV file here</h3>
+        <p>or click to browse</p>
+        <input type="file" id="csvFileInput" accept=".csv" hidden />
+      </div>
+
+      <!-- File Info -->
+      <div class="file-info" id="fileInfo" style="display:none;">
+        <i class="fas fa-file-csv"></i>
+        <span id="fileName"></span>
+        <button class="btn btn-sm btn-danger" id="removeFile">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Upload Button -->
+      <button class="btn btn-primary btn-lg" id="processBtn" disabled>
+        <i class="fas fa-cogs"></i> Process & Upload to Firebase
+      </button>
+
+      <!-- Progress -->
+      <div class="progress-container" id="progressContainer" style="display:none;">
+        <div class="progress-header">
+          <span id="progressText">Processing...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="results-container" id="resultsContainer" style="display:none;">
+        <div class="results-header">
+          <h3><i class="fas fa-check-circle"></i> Upload Complete</h3>
+          <div class="results-stats">
+            <div class="stat">
+              <span class="stat-number" id="totalUploaded">0</span>
+              <span class="stat-label">Uploaded</span>
+            </div>
+            <div class="stat">
+              <span class="stat-number" id="totalSkipped">0</span>
+              <span class="stat-label">Skipped (Duplicates)</span>
+            </div>
+            <div class="stat">
+              <span class="stat-number" id="totalFailed">0</span>
+              <span class="stat-label">Failed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Table -->
+      <div class="table-container" id="previewContainer" style="display:none;">
+        <h3><i class="fas fa-table"></i> CSV Preview</h3>
+        <div class="table-scroll">
+          <table id="previewTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>PRN</th>
+                <th>Email</th>
+                <th>Mobile</th>
+                <th>Year</th>
+                <th>QR Code</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== CHECK-IN PAGE ====== -->
+  <section id="page-checkin" class="page">
+    <div class="container">
+      <div class="page-header">
+        <h1><i class="fas fa-qrcode"></i> QR Check-In</h1>
+        <p>Scan an attendee's QR code to check them in to the event.</p>
+      </div>
+
+      <div class="checkin-grid">
+        <!-- Scanner Panel -->
+        <div class="scanner-panel">
+          <div class="card">
+            <h3><i class="fas fa-camera"></i> QR Scanner</h3>
+            <div id="qr-reader" class="qr-reader"></div>
+            <div class="scanner-controls">
+              <button class="btn btn-primary" id="startScanBtn">
+                <i class="fas fa-play"></i> Start Scanner
+              </button>
+              <button class="btn btn-danger" id="stopScanBtn" style="display:none;">
+                <i class="fas fa-stop"></i> Stop Scanner
+              </button>
+            </div>
+            <!-- Manual Entry -->
+            <div class="manual-entry">
+              <p>Or enter PRN manually:</p>
+              <div class="input-group">
+                <input type="text" id="manualPRN" placeholder="Enter PRN..." />
+                <button class="btn btn-primary" id="manualCheckInBtn">
+                  <i class="fas fa-search"></i> Look Up
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result Panel -->
+        <div class="result-panel">
+          <div class="card" id="resultCard">
+            <!-- Default State -->
+            <div id="resultDefault" class="result-state">
+              <div class="result-icon">
+                <i class="fas fa-qrcode"></i>
+              </div>
+              <h3>Waiting for Scan</h3>
+              <p>Point the camera at an attendee's QR code to begin check-in.</p>
+            </div>
+
+            <!-- Loading State -->
+            <div id="resultLoading" class="result-state" style="display:none;">
+              <div class="spinner"></div>
+              <h3>Fetching Details...</h3>
+            </div>
+
+            <!-- Success State -->
+            <div id="resultSuccess" class="result-state" style="display:none;">
+              <div class="result-icon success">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <h3>Checked In Successfully!</h3>
+              <div class="attendee-details" id="attendeeDetails"></div>
+            </div>
+
+            <!-- Already Checked In State -->
+            <div id="resultAlready" class="result-state" style="display:none;">
+              <div class="result-icon warning">
+                <i class="fas fa-exclamation-triangle"></i>
+              </div>
+              <h3>Already Checked In!</h3>
+              <p class="already-time" id="alreadyTime"></p>
+              <div class="attendee-details" id="attendeeDetailsAlready"></div>
+            </div>
+
+            <!-- Not Found State -->
+            <div id="resultNotFound" class="result-state" style="display:none;">
+              <div class="result-icon error">
+                <i class="fas fa-times-circle"></i>
+              </div>
+              <h3>Attendee Not Found</h3>
+              <p>No registration found for this QR code. Please verify the attendee's registration.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== DASHBOARD PAGE ====== -->
+  <section id="page-dashboard" class="page">
+    <div class="container">
+      <div class="page-header">
+        <h1><i class="fas fa-chart-bar"></i> Event Dashboard</h1>
+        <p>Real-time overview of event registrations and check-ins.</p>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-icon blue">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-card-number" id="dashTotalRegistered">0</span>
+            <span class="stat-card-label">Total Registered</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon green">
+            <i class="fas fa-user-check"></i>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-card-number" id="dashCheckedIn">0</span>
+            <span class="stat-card-label">Checked In</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon orange">
+            <i class="fas fa-user-clock"></i>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-card-number" id="dashPending">0</span>
+            <span class="stat-card-label">Pending</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon purple">
+            <i class="fas fa-percentage"></i>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-card-number" id="dashPercentage">0%</span>
+            <span class="stat-card-label">Check-In Rate</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="dashboard-controls">
+        <div class="search-box">
+          <i class="fas fa-search"></i>
+          <input type="text" id="searchInput" placeholder="Search by name, PRN, or email..." />
+        </div>
+        <div class="filter-group">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="checked-in">Checked In</button>
+          <button class="filter-btn" data-filter="pending">Pending</button>
+        </div>
+        <button class="btn btn-primary" id="refreshDashboard">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <button class="btn btn-success" id="exportBtn">
+          <i class="fas fa-download"></i> Export CSV
+        </button>
+      </div>
+
+      <!-- Attendees Table -->
+      <div class="table-container">
+        <div class="table-scroll">
+          <table id="attendeesTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>PRN</th>
+                <th>Email</th>
+                <th>Mobile</th>
+                <th>Year</th>
+                <th>Status</th>
+                <th>Check-In Time</th>
+                <th>QR</th>
+              </tr>
+            </thead>
+            <tbody id="attendeesBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <i class="fas fa-inbox"></i>
+          <p>No attendees found.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== QR MODAL ====== -->
+  <div class="modal-overlay" id="qrModal" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="qrModalTitle">QR Code</h3>
+        <button class="modal-close" id="closeQrModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="qrModalCode" class="qr-display"></div>
+        <p id="qrModalPRN" class="qr-prn"></p>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /mainApp -->
+
+  <!-- ====== TOAST CONTAINER ====== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Application Scripts -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/upload.js"></script>
+  <script src="js/checkin.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
