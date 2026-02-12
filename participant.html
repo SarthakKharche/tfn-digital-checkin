@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get Your QR Code — TFN Digital Check-In</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-dark: #3730a3;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6366f1 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 1.8rem;
+    }
+
+    .header-icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 0.8rem;
+      font-size: 1.6rem;
+      color: #fff;
+    }
+
+    .header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+    }
+
+    .header p {
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+    }
+
+    .form-group label i {
+      color: var(--primary);
+      margin-right: 0.25rem;
+      width: 16px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.92rem;
+      font-family: inherit;
+      outline: none;
+      transition: 0.2s ease;
+      background: var(--bg);
+    }
+
+    .form-group input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+      background: #fff;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      width: 100%;
+      padding: 0.75rem 1.2rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s ease;
+      font-family: inherit;
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn:hover { background: var(--primary-dark); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg {
+      color: var(--danger);
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-align: center;
+      min-height: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* States */
+    .state { display: none; }
+    .state.active { display: block; }
+
+    /* Loading */
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 1.5rem auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    /* Result */
+    .result {
+      text-align: center;
+    }
+
+    .result-icon {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .result-icon.success { color: var(--success); }
+    .result-icon.error { color: var(--danger); }
+
+    .result h2 {
+      font-size: 1.15rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .result p {
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      margin-bottom: 1rem;
+    }
+
+    .qr-container {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .qr-container img {
+      border-radius: var(--radius-sm);
+      max-width: 256px;
+      width: 100%;
+      height: auto;
+    }
+
+    .attendee-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 0.8rem;
+    }
+
+    .attendee-info {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: 0.2rem;
+    }
+
+    .download-btn {
+      background: var(--success);
+      margin-top: 0.5rem;
+    }
+
+    .download-btn:hover {
+      background: #059669;
+    }
+
+    .back-btn {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--border);
+      margin-top: 0.5rem;
+    }
+
+    .back-btn:hover {
+      background: var(--bg);
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    @media (max-width: 500px) {
+      .card { padding: 1.5rem 1.2rem; }
+      .header h1 { font-size: 1.2rem; }
+      .header-icon { width: 52px; height: 52px; font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="header-icon">
+        <i class="fas fa-qrcode"></i>
+      </div>
+      <h1>Get Your QR Code</h1>
+      <p>Enter your registered details to download your event QR code.</p>
+    </div>
+
+    <!-- FORM STATE -->
+    <div id="stateForm" class="state active">
+      <form id="lookupForm" autocomplete="off">
+        <div class="form-group">
+          <label><i class="fas fa-id-badge"></i> PRN</label>
+          <input type="text" id="inputPRN" placeholder="Enter your PRN" required />
+        </div>
+        <div class="form-group">
+          <label><i class="fas fa-envelope"></i> Email</label>
+          <input type="email" id="inputEmail" placeholder="Enter your registered email" required />
+        </div>
+        <p class="error-msg" id="errorMsg"></p>
+        <button type="submit" class="btn" id="lookupBtn">
+          <i class="fas fa-search"></i> Get My QR Code
+        </button>
+      </form>
+    </div>
+
+    <!-- LOADING STATE -->
+    <div id="stateLoading" class="state">
+      <div class="spinner"></div>
+      <p class="loading-text">Verifying your details...</p>
+    </div>
+
+    <!-- SUCCESS STATE -->
+    <div id="stateSuccess" class="state">
+      <div class="result">
+        <div class="result-icon success">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <h2>Here's Your QR Code!</h2>
+        <p>Show this at the event entrance for quick check-in.</p>
+        <div class="qr-container">
+          <img id="qrImage" src="" alt="Your QR Code" />
+        </div>
+        <p class="attendee-name" id="attendeeName"></p>
+        <p class="attendee-info" id="attendeeInfo"></p>
+        <button class="btn download-btn" id="downloadBtn">
+          <i class="fas fa-download"></i> Download QR Code
+        </button>
+        <button class="btn back-btn" id="backBtn">
+          <i class="fas fa-arrow-left"></i> Look Up Another
+        </button>
+      </div>
+    </div>
+
+    <!-- NOT FOUND STATE -->
+    <div id="stateNotFound" class="state">
+      <div class="result">
+        <div class="result-icon error">
+          <i class="fas fa-times-circle"></i>
+        </div>
+        <h2>Not Found</h2>
+        <p id="notFoundMsg">No registration found with these details. Please check your PRN and email.</p>
+        <button class="btn back-btn" id="retryBtn">
+          <i class="fas fa-arrow-left"></i> Try Again
+        </button>
+      </div>
+    </div>
+
+    <div class="footer">
+      Powered by <a href="#">Tech For Need — DYPIU</a>
+    </div>
+  </div>
+
+  <script>
+    // Firebase config (same project)
+    const firebaseConfig = {
+      apiKey: "AIzaSyATq31FA9dthYjLEvko_eGd5gw9M2JrLvA",
+      authDomain: "tfn-digital-check-in.firebaseapp.com",
+      projectId: "tfn-digital-check-in",
+      storageBucket: "tfn-digital-check-in.firebasestorage.app",
+      messagingSenderId: "624298899361",
+      appId: "1:624298899361:web:418e2bf396613102de3de0"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.settings({
+      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: false,
+      merge: true
+    });
+
+    // DOM
+    const stateForm     = document.getElementById("stateForm");
+    const stateLoading  = document.getElementById("stateLoading");
+    const stateSuccess  = document.getElementById("stateSuccess");
+    const stateNotFound = document.getElementById("stateNotFound");
+    const lookupForm    = document.getElementById("lookupForm");
+    const inputPRN      = document.getElementById("inputPRN");
+    const inputEmail    = document.getElementById("inputEmail");
+    const errorMsg      = document.getElementById("errorMsg");
+    const qrImage       = document.getElementById("qrImage");
+    const attendeeName  = document.getElementById("attendeeName");
+    const attendeeInfo  = document.getElementById("attendeeInfo");
+    const downloadBtn   = document.getElementById("downloadBtn");
+    const backBtn       = document.getElementById("backBtn");
+    const retryBtn      = document.getElementById("retryBtn");
+    const notFoundMsg   = document.getElementById("notFoundMsg");
+
+    let currentQRData = null;
+    let currentName = "";
+
+    function showState(name) {
+      [stateForm, stateLoading, stateSuccess, stateNotFound].forEach(
+        (el) => el.classList.remove("active")
+      );
+      document.getElementById(`state${name}`).classList.add("active");
+    }
+
+    // Look up attendee
+    lookupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorMsg.textContent = "";
+
+      const prn   = inputPRN.value.trim();
+      const email = inputEmail.value.trim().toLowerCase();
+
+      if (!prn || !email) {
+        errorMsg.textContent = "Please fill in both fields.";
+        return;
+      }
+
+      showState("Loading");
+
+      try {
+        // Query by PRN
+        const snapshot = await db.collection("attendees")
+          .where("prn", "==", prn)
+          .limit(1)
+          .get();
+
+        if (snapshot.empty) {
+          notFoundMsg.textContent = "No registration found with this PRN. Please check and try again.";
+          showState("NotFound");
+          return;
+        }
+
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+
+        // Verify email matches
+        if (data.email.trim().toLowerCase() !== email) {
+          notFoundMsg.textContent = "The email doesn't match the registered email for this PRN.";
+          showState("NotFound");
+          return;
+        }
+
+        // Show QR
+        currentQRData = data.qrData;
+        currentName = data.name;
+        qrImage.src = data.qrData;
+        attendeeName.textContent = data.name;
+        attendeeInfo.textContent = `${data.prn} · ${data.year} · ${data.email}`;
+        showState("Success");
+
+      } catch (err) {
+        console.error("Lookup error:", err);
+        errorMsg.textContent = "Something went wrong. Please try again.";
+        showState("Form");
+      }
+    });
+
+    // Download QR
+    downloadBtn.addEventListener("click", () => {
+      if (!currentQRData) return;
+      const link = document.createElement("a");
+      link.href = currentQRData;
+      link.download = `QR-${currentName.replace(/\s+/g, "-")}.png`;
+      link.click();
+    });
+
+    // Back / Retry
+    backBtn.addEventListener("click", () => {
+      inputPRN.value = "";
+      inputEmail.value = "";
+      showState("Form");
+    });
+
+    retryBtn.addEventListener("click", () => showState("Form"));
+  </script>
+</body>
+</html>
