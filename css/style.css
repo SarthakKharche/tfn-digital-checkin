@@ -1271,6 +1271,21 @@ tbody tr:last-child td {
     left: 0;
   }
 
+  .nav-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    z-index: 199;
+  }
+
+  .nav-overlay.active {
+    display: block;
+  }
+
   .nav-btn {
     padding: 0.7rem 0.9rem;
     font-size: 0.92rem;
@@ -1288,6 +1303,11 @@ tbody tr:last-child td {
     border-top: 1px solid var(--border);
     margin-top: auto;
     padding-top: 0.7rem;
+    color: var(--danger) !important;
+  }
+
+  .logout-btn:hover {
+    background: var(--danger-light) !important;
   }
 
   /* Events responsive */

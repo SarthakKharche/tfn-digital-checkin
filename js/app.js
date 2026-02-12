@@ -95,22 +95,27 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- Hamburger Menu Toggle ---
     const hamburgerBtn = document.getElementById("hamburgerBtn");
     const navLinksEl   = document.getElementById("navLinks");
+    const navOverlay   = document.getElementById("navOverlay");
 
     function openMenu() {
       hamburgerBtn.classList.add("active");
       navLinksEl.classList.add("open");
+      navOverlay.classList.add("active");
       document.body.style.overflow = "hidden";
     }
 
     function closeMenu() {
       hamburgerBtn.classList.remove("active");
       navLinksEl.classList.remove("open");
+      navOverlay.classList.remove("active");
       document.body.style.overflow = "";
     }
 
     hamburgerBtn.addEventListener("click", () => {
       navLinksEl.classList.contains("open") ? closeMenu() : openMenu();
     });
+
+    navOverlay.addEventListener("click", closeMenu);
 
     // --- Page Navigation ---
     const navBtns = document.querySelectorAll(".nav-btn[data-page]");
