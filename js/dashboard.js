@@ -61,8 +61,21 @@ const DashboardModule = (() => {
    * Load all attendee data from Firestore
    */
   async function loadDashboard() {
+    // Ensure an event is selected
+    const eventId = EventsModule.getSelectedEventId();
+    if (!eventId) {
+      showToast("Please select an event first from the Events page!", "warning");
+      allAttendees = [];
+      updateStats();
+      renderTable();
+      return;
+    }
+
     try {
-      const snapshot = await attendeesRef.orderBy("createdAt", "desc").get();
+      const snapshot = await attendeesRef
+        .where("eventId", "==", eventId)
+        .orderBy("createdAt", "desc")
+        .get();
       allAttendees = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data()

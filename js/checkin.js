@@ -140,10 +140,19 @@ const CheckInModule = (() => {
   async function lookupAndCheckIn(prn) {
     showState("loading");
 
+    // Ensure an event is selected
+    const eventId = EventsModule.getSelectedEventId();
+    if (!eventId) {
+      showToast("Please select an event first from the Events page!", "warning");
+      showState("default");
+      return;
+    }
+
     try {
-      // Query Firestore for this PRN
+      // Query Firestore for this PRN within the selected event
       const snapshot = await attendeesRef
         .where("prn", "==", prn)
+        .where("eventId", "==", eventId)
         .limit(1)
         .get();
 

@@ -189,6 +189,13 @@ const UploadModule = (() => {
   async function processAndUpload() {
     if (parsedData.length === 0) return;
 
+    // Ensure an event is selected
+    const eventId = EventsModule.getSelectedEventId();
+    if (!eventId) {
+      showToast("Please select an event first from the Events page!", "warning");
+      return;
+    }
+
     processBtn.disabled = true;
     progressContainer.style.display = "block";
     resultsContainer.style.display = "none";
@@ -218,9 +225,9 @@ const UploadModule = (() => {
       updateProgress(i + 1, total, `Processing ${row.name}...`);
 
       try {
-        // Check if PRN already exists in Firestore (duplicate detection) — 10s timeout
+        // Check if PRN already exists in Firestore for this event (duplicate detection) — 10s timeout
         const existing = await withTimeout(
-          attendeesRef.where("prn", "==", row.prn).limit(1).get(),
+          attendeesRef.where("prn", "==", row.prn).where("eventId", "==", eventId).limit(1).get(),
           10000
         );
 
@@ -242,6 +249,7 @@ const UploadModule = (() => {
           qrData:      qrDataUrl,
           checkedIn:   false,
           checkInTime: null,
+          eventId:     eventId,
           createdAt:   firebase.firestore.FieldValue.serverTimestamp()
         };
 

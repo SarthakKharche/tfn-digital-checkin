@@ -90,6 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
     UploadModule.init();
     CheckInModule.init();
     DashboardModule.init();
+    EventsModule.init();
 
     // --- Page Navigation ---
     const navBtns = document.querySelectorAll(".nav-btn[data-page]");
@@ -116,6 +117,11 @@ document.addEventListener("DOMContentLoaded", () => {
         // Auto-refresh dashboard when navigating to it
         if (targetPage === "dashboard") {
           DashboardModule.loadDashboard();
+        }
+
+        // Auto-refresh events list when navigating to it
+        if (targetPage === "events") {
+          EventsModule.loadEvents();
         }
       });
     });

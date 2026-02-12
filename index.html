@@ -65,7 +65,10 @@
       <span>TFN Digital Check-In</span>
     </div>
     <div class="nav-links">
-      <button class="nav-btn active" data-page="upload">
+      <button class="nav-btn active" data-page="events">
+        <i class="fas fa-calendar-alt"></i> Events
+      </button>
+      <button class="nav-btn" data-page="upload">
         <i class="fas fa-upload"></i> Upload CSV
       </button>
       <button class="nav-btn" data-page="checkin">
@@ -80,8 +83,59 @@
     </div>
   </nav>
 
+  <!-- ====== GLOBAL EVENT BAR ====== -->
+  <div class="global-event-bar" id="globalEventBar" style="display:none;">
+    <i class="fas fa-calendar-check"></i>
+    <span>Active Event:</span>
+    <strong id="globalEventName"></strong>
+  </div>
+
+  <!-- ====== EVENTS PAGE ====== -->
+  <section id="page-events" class="page active">
+    <div class="container">
+      <div class="page-header">
+        <h1><i class="fas fa-calendar-alt"></i> Manage Events</h1>
+        <p>Create events to organize registrations and check-ins separately.</p>
+      </div>
+
+      <!-- Add Event Form -->
+      <div class="card add-event-card">
+        <h3><i class="fas fa-plus-circle"></i> Create New Event</h3>
+        <form id="addEventForm" class="add-event-form">
+          <div class="event-form-row">
+            <div class="form-group">
+              <label for="eventName"><i class="fas fa-heading"></i> Event Name</label>
+              <input type="text" id="eventName" placeholder="e.g. TechFest 2026" required />
+            </div>
+            <div class="form-group">
+              <label for="eventDate"><i class="fas fa-calendar"></i> Event Date</label>
+              <input type="date" id="eventDate" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="eventDescription"><i class="fas fa-align-left"></i> Description (optional)</label>
+            <input type="text" id="eventDescription" placeholder="Short description of the event" />
+          </div>
+          <button type="submit" class="btn btn-primary" id="addEventBtn">
+            <i class="fas fa-plus"></i> Create Event
+          </button>
+        </form>
+      </div>
+
+      <!-- Events List -->
+      <div class="events-list-section">
+        <h3><i class="fas fa-list"></i> Your Events</h3>
+        <div id="eventsList" class="events-grid"></div>
+        <div class="empty-state" id="noEventsMsg">
+          <i class="fas fa-calendar-plus"></i>
+          <p>No events yet. Create your first event above to get started!</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ====== UPLOAD PAGE ====== -->
-  <section id="page-upload" class="page active">
+  <section id="page-upload" class="page">
     <div class="container">
       <div class="page-header">
         <h1><i class="fas fa-file-csv"></i> Upload Registrations</h1>
@@ -381,6 +435,7 @@
 
   <!-- Application Scripts -->
   <script src="js/firebase-config.js"></script>
+  <script src="js/events.js"></script>
   <script src="js/upload.js"></script>
   <script src="js/checkin.js"></script>
   <script src="js/dashboard.js"></script>

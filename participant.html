@@ -264,6 +264,61 @@
       .header h1 { font-size: 1.2rem; }
       .header-icon { width: 52px; height: 52px; font-size: 1.3rem; }
     }
+
+    .event-select-input {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.92rem;
+      font-family: inherit;
+      outline: none;
+      transition: 0.2s ease;
+      background: var(--bg);
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.9rem center;
+      padding-right: 2.5rem;
+    }
+
+    .event-select-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+      background-color: #fff;
+    }
+
+    .selected-event-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 0.8rem;
+      background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+    }
+
+    .selected-event-bar i {
+      font-size: 0.85rem;
+    }
+
+    .change-event-link {
+      margin-left: auto;
+      color: #fff;
+      opacity: 0.8;
+      cursor: pointer;
+      font-size: 0.78rem;
+      text-decoration: underline;
+    }
+
+    .change-event-link:hover {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -276,8 +331,22 @@
       <p>Enter your registered details to download your event QR code.</p>
     </div>
 
+    <!-- EVENT SELECT STATE -->
+    <div id="stateEventSelect" class="state active">
+      <div class="form-group">
+        <label><i class="fas fa-calendar-alt"></i> Select Event</label>
+        <select id="eventSelect" class="event-select-input">
+          <option value="">Loading events...</option>
+        </select>
+      </div>
+      <p class="error-msg" id="eventError"></p>
+      <button type="button" class="btn" id="eventContinueBtn" disabled>
+        <i class="fas fa-arrow-right"></i> Continue
+      </button>
+    </div>
+
     <!-- FORM STATE -->
-    <div id="stateForm" class="state active">
+    <div id="stateForm" class="state">
       <form id="lookupForm" autocomplete="off">
         <div class="form-group">
           <label><i class="fas fa-id-badge"></i> PRN</label>
@@ -361,6 +430,7 @@
     });
 
     // DOM
+    const stateEventSelect = document.getElementById("stateEventSelect");
     const stateForm     = document.getElementById("stateForm");
     const stateLoading  = document.getElementById("stateLoading");
     const stateSuccess  = document.getElementById("stateSuccess");
@@ -376,15 +446,90 @@
     const backBtn       = document.getElementById("backBtn");
     const retryBtn      = document.getElementById("retryBtn");
     const notFoundMsg   = document.getElementById("notFoundMsg");
+    const eventSelect   = document.getElementById("eventSelect");
+    const eventError    = document.getElementById("eventError");
+    const eventContinueBtn = document.getElementById("eventContinueBtn");
 
     let currentQRData = null;
     let currentName = "";
+    let selectedEventId = null;
+    let selectedEventName = "";
 
     function showState(name) {
-      [stateForm, stateLoading, stateSuccess, stateNotFound].forEach(
+      [stateEventSelect, stateForm, stateLoading, stateSuccess, stateNotFound].forEach(
         (el) => el.classList.remove("active")
       );
       document.getElementById(`state${name}`).classList.add("active");
+    }
+
+    // Load events on page load
+    async function loadEvents() {
+      try {
+        const snapshot = await db.collection("events").orderBy("createdAt", "desc").get();
+        eventSelect.innerHTML = "";
+
+        if (snapshot.empty) {
+          eventSelect.innerHTML = '<option value="">No events available</option>';
+          eventContinueBtn.disabled = true;
+          return;
+        }
+
+        eventSelect.innerHTML = '<option value="">— Select an event —</option>';
+        snapshot.docs.forEach((doc) => {
+          const data = doc.data();
+          const opt = document.createElement("option");
+          opt.value = doc.id;
+          opt.textContent = data.name + (data.date ? ` (${data.date})` : "");
+          eventSelect.appendChild(opt);
+        });
+
+        eventSelect.addEventListener("change", () => {
+          eventContinueBtn.disabled = !eventSelect.value;
+          eventError.textContent = "";
+        });
+
+      } catch (err) {
+        console.error("Failed to load events:", err);
+        eventSelect.innerHTML = '<option value="">Error loading events</option>';
+      }
+    }
+
+    loadEvents();
+
+    // Continue to form after event selection
+    eventContinueBtn.addEventListener("click", () => {
+      if (!eventSelect.value) {
+        eventError.textContent = "Please select an event.";
+        return;
+      }
+      selectedEventId = eventSelect.value;
+      selectedEventName = eventSelect.options[eventSelect.selectedIndex].text;
+      showState("Form");
+      // Show selected event bar
+      addEventBar();
+    });
+
+    function addEventBar() {
+      // Remove existing bar if any
+      const existing = document.querySelector(".selected-event-bar");
+      if (existing) existing.remove();
+
+      const bar = document.createElement("div");
+      bar.className = "selected-event-bar";
+      bar.innerHTML = `
+        <i class="fas fa-calendar-check"></i>
+        <span>${selectedEventName}</span>
+        <span class="change-event-link" id="changeEventLink">Change</span>
+      `;
+      const header = document.querySelector(".header");
+      header.parentNode.insertBefore(bar, header.nextSibling);
+
+      document.getElementById("changeEventLink").addEventListener("click", () => {
+        selectedEventId = null;
+        selectedEventName = "";
+        bar.remove();
+        showState("EventSelect");
+      });
     }
 
     // Look up attendee
@@ -400,17 +545,23 @@
         return;
       }
 
+      if (!selectedEventId) {
+        errorMsg.textContent = "Please select an event first.";
+        return;
+      }
+
       showState("Loading");
 
       try {
-        // Query by PRN
+        // Query by PRN scoped to selected event
         const snapshot = await db.collection("attendees")
           .where("prn", "==", prn)
+          .where("eventId", "==", selectedEventId)
           .limit(1)
           .get();
 
         if (snapshot.empty) {
-          notFoundMsg.textContent = "No registration found with this PRN. Please check and try again.";
+          notFoundMsg.textContent = "No registration found with this PRN for the selected event. Please check and try again.";
           showState("NotFound");
           return;
         }

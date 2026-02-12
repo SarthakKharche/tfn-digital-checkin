@@ -55,8 +55,9 @@ db.settings({
   merge: true
 });
 
-// Collection reference
+// Collection references
 const attendeesRef = db.collection("attendees");
+const eventsRef = db.collection("events");
 
 /**
  * Utility: Show a toast notification
