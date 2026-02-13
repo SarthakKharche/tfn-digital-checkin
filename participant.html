@@ -328,7 +328,7 @@
         <i class="fas fa-qrcode"></i>
       </div>
       <h1>Get Your QR Code</h1>
-      <p>Enter your registered details to download your event QR code.</p>
+      <p>Enter your PRN or email to download your event QR code.</p>
     </div>
 
     <!-- EVENT SELECT STATE -->
@@ -350,11 +350,11 @@
       <form id="lookupForm" autocomplete="off">
         <div class="form-group">
           <label><i class="fas fa-id-badge"></i> PRN</label>
-          <input type="text" id="inputPRN" placeholder="Enter your PRN" required />
+          <input type="text" id="inputPRN" placeholder="Enter your PRN" />
         </div>
         <div class="form-group">
           <label><i class="fas fa-envelope"></i> Email</label>
-          <input type="email" id="inputEmail" placeholder="Enter your registered email" required />
+          <input type="email" id="inputEmail" placeholder="Enter your registered email" />
         </div>
         <p class="error-msg" id="errorMsg"></p>
         <button type="submit" class="btn" id="lookupBtn">
@@ -398,7 +398,7 @@
           <i class="fas fa-times-circle"></i>
         </div>
         <h2>Not Found</h2>
-        <p id="notFoundMsg">No registration found with these details. Please check your PRN and email.</p>
+        <p id="notFoundMsg">No registration found with these details. Please check your PRN or email.</p>
         <button class="btn back-btn" id="retryBtn">
           <i class="fas fa-arrow-left"></i> Try Again
         </button>
@@ -540,8 +540,8 @@
       const prn   = inputPRN.value.trim();
       const email = inputEmail.value.trim().toLowerCase();
 
-      if (!prn || !email) {
-        errorMsg.textContent = "Please fill in both fields.";
+      if (!prn && !email) {
+        errorMsg.textContent = "Please enter your PRN or email.";
         return;
       }
 
@@ -553,28 +553,32 @@
       showState("Loading");
 
       try {
-        // Query by PRN scoped to selected event
-        const snapshot = await db.collection("attendees")
-          .where("prn", "==", prn)
-          .where("eventId", "==", selectedEventId)
-          .limit(1)
-          .get();
+        let snapshot;
+
+        if (prn) {
+          // Query by PRN scoped to selected event
+          snapshot = await db.collection("attendees")
+            .where("prn", "==", prn)
+            .where("eventId", "==", selectedEventId)
+            .limit(1)
+            .get();
+        } else {
+          // Query by email scoped to selected event
+          snapshot = await db.collection("attendees")
+            .where("email", "==", email)
+            .where("eventId", "==", selectedEventId)
+            .limit(1)
+            .get();
+        }
 
         if (snapshot.empty) {
-          notFoundMsg.textContent = "No registration found with this PRN for the selected event. Please check and try again.";
+          notFoundMsg.textContent = "No registration found for the selected event. Please check your details and try again.";
           showState("NotFound");
           return;
         }
 
         const doc = snapshot.docs[0];
         const data = doc.data();
-
-        // Verify email matches
-        if (data.email.trim().toLowerCase() !== email) {
-          notFoundMsg.textContent = "The email doesn't match the registered email for this PRN.";
-          showState("NotFound");
-          return;
-        }
 
         // Show QR
         currentQRData = data.qrData;
