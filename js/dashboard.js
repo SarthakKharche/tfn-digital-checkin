@@ -163,6 +163,13 @@ const DashboardModule = (() => {
               : "—"
           }
         </td>
+        <td data-label="Action">
+          ${
+            a.checkedIn
+              ? `<span class="status-badge checked-in" style="font-size:0.75rem;"><i class="fas fa-check"></i> Done</span>`
+              : `<button class="btn btn-primary btn-sm manual-checkin-btn" data-prn="${escapeHtml(a.prn)}" style="white-space:nowrap;"><i class="fas fa-user-check"></i> Check In</button>`
+          }
+        </td>
       `;
       attendeesBody.appendChild(tr);
     });
@@ -177,6 +184,11 @@ const DashboardModule = (() => {
         qrModalCode.innerHTML = `<img src="${qrSrc}" alt="QR Code" style="width:256px;height:256px;" />`;
         qrModal.style.display = "flex";
       });
+    });
+
+    // Manual check-in buttons in table rows
+    document.querySelectorAll(".manual-checkin-btn").forEach((btn) => {
+      btn.addEventListener("click", () => handleRowCheckIn(btn));
     });
   }
 
@@ -234,6 +246,62 @@ const DashboardModule = (() => {
     link.click();
 
     showToast("CSV exported successfully", "success");
+  }
+
+  /**
+   * Manual check-in from a table row button
+   */
+  async function handleRowCheckIn(btn) {
+    const prn = btn.dataset.prn;
+    if (!prn) return;
+
+    const eventId = EventsModule.getSelectedEventId();
+    if (!eventId) {
+      showToast("Please select an event first from the Events page!", "warning");
+      return;
+    }
+
+    try {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ...';
+
+      const snapshot = await attendeesRef
+        .where("prn", "==", prn)
+        .where("eventId", "==", eventId)
+        .limit(1)
+        .get();
+
+      if (snapshot.empty) {
+        showToast("Attendee not found for this PRN", "error");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-check"></i> Check In';
+        return;
+      }
+
+      const doc = snapshot.docs[0];
+      const data = doc.data();
+
+      if (data.checkedIn) {
+        showToast(`${data.name} is already checked in!`, "warning");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-check"></i> Check In';
+        loadDashboard();
+        return;
+      }
+
+      await doc.ref.update({
+        checkedIn: true,
+        checkInTime: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      showToast(`${data.name} checked in successfully!`, "success");
+      loadDashboard();
+    } catch (err) {
+      console.error("Manual check-in error:", err);
+      showToast("Error during check-in. Please try again.", "error");
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-user-check"></i> Check In';
+    }
   }
 
   /**
